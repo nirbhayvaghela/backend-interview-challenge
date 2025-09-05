@@ -7,6 +7,7 @@ export function createSyncRouter(db: Database): Router {
   const router = Router();
   const taskService = new TaskService(db);
   const syncService = new SyncService(db, taskService);
+  taskService.setSyncService(syncService);
 
   // Trigger manual sync
   router.post('/sync', async (req: Request, res: Response) => {

@@ -21,7 +21,7 @@ export class Database {
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         description TEXT,
-        completed INTEGER DEFAULT 0,
+        completed INTEGER DEFAULT 0,ik 
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         is_deleted INTEGER DEFAULT 0,

@@ -1,11 +1,13 @@
 import axios from 'axios';
+
+import { v4 as uuidv4 } from 'uuid';
 import { Task, SyncQueueItem, SyncResult, BatchSyncRequest, BatchSyncResponse } from '../types';
 import { Database } from '../db/database';
 import { TaskService } from './taskService';
 
 export class SyncService {
   private apiUrl: string;
-  
+
   constructor(
     private db: Database,
     private taskService: TaskService,
@@ -30,7 +32,14 @@ export class SyncService {
     // 1. Create sync queue item
     // 2. Store serialized task data
     // 3. Insert into sync_queue table
-    throw new Error('Not implemented');
+    try {
+      await this.db.run(
+        'INSERT INTO sync_queue (id, task_id, operation, data) VALUES (?, ?, ?, ?)',
+        [uuidv4(), taskId, operation, JSON.stringify({ data }),]
+      );
+    } catch (error) {
+      throw new Error('Failed to create task', error as any);
+    }
   }
 
   private async processBatch(items: SyncQueueItem[]): Promise<BatchSyncResponse> {

@@ -36,7 +36,6 @@ export class TaskService {
       if (!createdTask) {
         throw new Error('Failed to create task');
       }
-
       if (this.syncService) {
         await this.syncService.addToSyncQueue(createdTask.id, 'create', createdTask);
       }
@@ -107,23 +106,36 @@ export class TaskService {
     // 4. Set sync_status to 'pending'
     // 5. Add to sync queue
     try {
+      const task = await this.getTask(id);
+      if (!task) {
+        return false; // no task to delete
+      }
+
+      // 2. Soft delete the task
       await this.db.run(
-        `UPDATE tasks SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP, sync_status = 'pending' WHERE id = ?`,
+        `UPDATE tasks 
+           SET is_deleted = 1, 
+               updated_at = CURRENT_TIMESTAMP, 
+               sync_status = 'pending'
+         WHERE id = ?`,
         [id]
       );
 
-      const deletedTask = await this.getTask(id);
+      // 3. Re-fetch the updated task
+      const deletedTask = await this.db.get(
+        `SELECT * FROM tasks WHERE id = ?`,
+        [id]
+      );
 
-      if (this.syncService) {
-        await this.syncService.addToSyncQueue(id, 'delete', deletedTask!);
+      // 4. Add to sync queue
+      if (this.syncService && deletedTask) {
+        await this.syncService.addToSyncQueue(id, 'delete', deletedTask);
       }
 
-      if (deletedTask?.is_deleted)
-        return true;
-      else
-        return false;
-    } catch (error) {
-      throw new Error('Failed to delete task', error as any);
+      return true;
+    } catch (error: any) {
+      console.error('Failed to delete task', error);
+      throw new Error(`Failed to delete task: ${error.message}`);
     }
   }
 

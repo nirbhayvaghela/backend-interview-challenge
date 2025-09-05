@@ -105,12 +105,12 @@ export function createTaskRouter(db: Database): Router {
       // Handle not found case
       const task = await taskService.getTask(req.params.id);
       if (!task) {
-        return res.status(404).json({ error: 'Task not found' });
+        return res.status(404).json({ success: false });
       }
 
       // Call taskService.deleteTask()
       const deletedStatus = await taskService.deleteTask(req.params.id);
-      
+
       return res.status(200).json({ success: deletedStatus });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to delete task' });

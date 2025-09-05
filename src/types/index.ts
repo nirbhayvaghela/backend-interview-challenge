@@ -54,3 +54,4 @@ export interface BatchSyncResponse {
     error?: string;
   }[];
 }
+

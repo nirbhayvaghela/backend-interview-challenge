@@ -109,9 +109,9 @@ export function createTaskRouter(db: Database): Router {
       }
 
       // Call taskService.deleteTask()
-      await taskService.deleteTask(req.params.id);
-
-      return res.status(200).json({ success: true });
+      const deletedStatus = await taskService.deleteTask(req.params.id);
+      
+      return res.status(200).json({ success: deletedStatus });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to delete task' });
     }

@@ -31,14 +31,14 @@ export class TaskService {
         params
       );
 
-      const createdTask = await this.db.get('SELECT * FROM tasks WHERE id = ?', [params[0]]);
+      const createdTask = await this.getTask(params[0]!);
 
       if (!createdTask) {
         throw new Error('Failed to create task');
       }
 
       if (this.syncService) {
-        await this.syncService.addToSyncQueue(params[0]!, 'create', createdTask);
+        await this.syncService.addToSyncQueue(createdTask.id, 'create', createdTask);
       }
 
       return createdTask;
@@ -133,7 +133,13 @@ export class TaskService {
     // 2. Return null if not found or is_deleted is true
     try {
       const task = await this.db.get('SELECT * FROM tasks WHERE id = ? AND is_deleted = 0', [id]);
-      return task || null;
+      if (!task) return null;
+
+      return {
+        ...task,
+        completed: !!task.completed,
+        is_deleted: !!task.is_deleted,
+      } as Task;
     } catch (error) {
       throw new Error('Failed to create task', error as any);
     }
@@ -145,16 +151,73 @@ export class TaskService {
     // 2. Return array of tasks
     try {
       const tasks = await this.db.all('SELECT * FROM tasks WHERE is_deleted = 0', []);
-      return tasks;
+      return tasks.map((task) => ({
+        ...task,
+        completed: !!task.completed,
+        is_deleted: !!task.is_deleted,
+      }));
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      throw new Error('Error fetching tasks:', error as any);
     }
-    return [];
     // throw new Error('Not implemented');
   }
 
   async getTasksNeedingSync(): Promise<Task[]> {
-    // TODO: Get all tasks with sync_status = 'pending' or 'error'
-    throw new Error('Not implemented');
+    try {
+      const rows = await this.db.all(
+        `SELECT * FROM tasks 
+         WHERE sync_status IN ('pending', 'error') 
+           AND is_deleted = 0`
+      );
+
+      // convert int → boolean
+      return rows.map((row: any) => ({
+        ...row,
+        completed: !!row.completed,
+        is_deleted: !!row.is_deleted,
+      })) as Task[];
+    } catch (error) {
+      throw new Error('Error fetching tasks needing sync:', error as any);
+    }
   }
+
+  async updateLocalOnly(taskId: string, updates: Partial<Task>): Promise<void> {
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    if (updates.title !== undefined) {
+      fields.push("title = ?");
+      params.push(updates.title);
+    }
+    if (updates.description !== undefined) {
+      fields.push("description = ?");
+      params.push(updates.description);
+    }
+    if (updates.completed !== undefined) {
+      fields.push("completed = ?");
+      params.push(updates.completed ? 1 : 0);
+    }
+    if (updates.updated_at !== undefined) {
+      fields.push("updated_at = ?");
+      params.push(updates.updated_at);
+    }
+    if ((updates as any).is_deleted !== undefined) {
+      fields.push("is_deleted = ?");
+      params.push((updates as any).is_deleted ? 1 : 0);
+    }
+    if (updates.server_id !== undefined) {
+      fields.push("server_id = ?");
+      params.push(updates.server_id);
+    }
+
+    if (fields.length === 0) return; // nothing to update
+
+    params.push(taskId);
+
+    await this.db.run(
+      `UPDATE tasks SET ${fields.join(", ")} WHERE id = ?`,
+      params
+    );
+  }
+
 }
